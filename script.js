@@ -1,3 +1,76 @@
+class Lazer {
+  constructor(game) {
+    this.game = game;
+    this.x = 0;
+    this.y = 0;
+    this.height = this.game.height - 50;
+  }
+
+  render(context) {
+    this.x =
+      this.game.player.x + this.game.player.width * 0.5 - this.width * 0.5;
+
+    this.game.player.energy -= this.damage
+
+    context.save();
+    context.fillStyle = "gold";
+    context.fillRect(this.x, this.y, this.width, this.height);
+    context.fillStyle = "white";
+    context.fillRect(
+      this.x + this.width * 0.2,
+      this.y,
+      this.width * 0.6,
+      this.height
+    );
+    context.restore();
+
+    if (this.game.spriteUpdate) {
+      this.game.waves.forEach((wave) => {
+        wave.enemies.forEach((enemy) => {
+          if (this.game.checkCollision(enemy, this) && boss.y > 0) {
+            enemy.hit(this.damage);
+          }
+        });
+      });
+      this.game.bossArray.forEach((boss) => {
+        if (this.game.checkCollision(boss, this)) {
+          boss.hit(this.damage);
+        }
+      });
+    }
+  }
+}
+
+class SmallLazer extends Lazer {
+  constructor(game) {
+    super(game);
+    this.width = 5;
+    this.damage = 0.3;
+  }
+
+  render(context) {
+    if (this.game.player.energy > 1 && !this.game.player.cooldown) {
+      super.render(context)
+      this.game.player.frameX = 2;
+    };
+  }
+}
+
+class BigLazer extends Lazer {
+  constructor(game) {
+    super(game);
+    this.width = 20;
+    this.damage = 0.7;
+  }
+
+  render(context) {
+    if (this.game.player.energy > 1 && !this.game.player.cooldown) {
+      super.render(context)
+      this.game.player.frameX = 3;
+    };
+  }
+}
+
 class Player {
   constructor(game) {
     this.game = game;
@@ -12,27 +85,60 @@ class Player {
     this.jetsImage = document.getElementById("player_jets");
     this.frameX = 0;
     this.jetsFrame = 1;
+    this.smallLazer = new SmallLazer(this.game);
+    this.bigLazer = new BigLazer(this.game);
+    this.energy = 50;
+    this.maxEnergy = 100;
+    this.cooldown = false;
   }
   draw(context) {
     // handle sprite frames
     if (this.game.keys.indexOf(" ") > -1) {
-        this.frameX = 1
-    } else {
-        this.frameX = 0
+      this.frameX = 1;
+    } else if (this.game.keys.indexOf("z") > -1) {
+      this.smallLazer.render(context);
+    } else if (this.game.keys.indexOf("x") > -1) {
+      this.bigLazer.render(context);
+    }else {
+      this.frameX = 0;
     }
-    context.drawImage(this.jetsImage, this.jetsFrame * this.width, 0, this.width, this.height, this.x, this.y, this.width, this.height);
-    context.drawImage(this.image, this.frameX * this.width, 0, this.width, this.height, this.x, this.y, this.width, this.height);
+    context.drawImage(
+      this.jetsImage,
+      this.jetsFrame * this.width,
+      0,
+      this.width,
+      this.height,
+      this.x,
+      this.y,
+      this.width,
+      this.height
+    );
+    context.drawImage(
+      this.image,
+      this.frameX * this.width,
+      0,
+      this.width,
+      this.height,
+      this.x,
+      this.y,
+      this.width,
+      this.height
+    );
   }
   update() {
+    // energy 
+    if (this.energy < this.maxEnergy) this.energy += 0.05;
+    if (this.energy < 10) this.cooldown = true;
+    else if (this.energy > this.maxEnergy * 0.2) this.cooldown = false;
     // horizontal movement
     if (this.game.keys.indexOf("ArrowLeft") > -1) {
-        this.x -= this.speed
-        this.jetsFrame = 0;
+      this.x -= this.speed;
+      this.jetsFrame = 0;
     } else if (this.game.keys.indexOf("ArrowRight") > -1) {
-        this.x += this.speed
-        this.jetsFrame = 2;
+      this.x += this.speed;
+      this.jetsFrame = 2;
     } else {
-        this.jetsFrame = 1;
+      this.jetsFrame = 1;
     }
 
     // horizontal boundaries
@@ -116,7 +222,10 @@ class Enemy {
     this.y = y + this.positionY;
     // check collision enemies with projectiles
     this.game.projectilesPool.forEach((projectile) => {
-      if (!projectile.free & this.game.checkCollision(this, projectile) && this.lives > 0) {
+      if (
+        !projectile.free & this.game.checkCollision(this, projectile) &&
+        this.lives > 0
+      ) {
         this.hit(1);
         projectile.reset();
       }
@@ -134,7 +243,7 @@ class Enemy {
       this.game.player.lives--;
     }
     // lose condition
-    if ((this.y + this.height > this.game.height) || this.game.player.lives < 1) {
+    if (this.y + this.height > this.game.height || this.game.player.lives < 1) {
       this.game.gameOver = true;
     }
   }
@@ -155,6 +264,108 @@ class Beetlemorph extends Enemy {
   }
 }
 
+class Rhinomorph extends Enemy {
+  constructor(game, positionX, positionY) {
+    super(game, positionX, positionY);
+    this.image = document.getElementById("rhinomorph");
+    this.frameX = 0;
+    this.maxFrame = 5;
+    this.frameY = Math.floor(Math.random() * 4);
+    this.lives = 4;
+    this.maxLives = this.lives;
+  }
+  hit(damage) {
+    super.hit(damage);
+    this.frameX = this.maxLives - Math.floor(this.lives);
+  }
+}
+
+class Boss {
+  constructor(game, bossLives) {
+    this.game = game;
+    this.width = 200;
+    this.height = 200;
+    this.x = this.game.width * 0.5 - this.width * 0.5;
+    this.y = -this.height;
+    this.speedX = Math.random() < 0.5 ? -1 : 1;
+    this.speedY = 1;
+    this.lives = bossLives;
+    this.markedForDeletion = false;
+    this.maxLives = this.lives;
+    this.image = document.getElementById("boss");
+    this.frameX = 0;
+    this.frameY = Math.floor(Math.random() * 4);
+    this.maxFrame = 11;
+  }
+
+  draw(context) {
+    context.drawImage(
+      this.image,
+      this.frameX * this.width,
+      this.frameY * this.height,
+      this.width,
+      this.height,
+      this.x,
+      this.y,
+      this.width,
+      this.height
+    );
+    if (this.lives >= 1) {
+      context.save();
+      context.textAlign = "center";
+      context.shadowOffsetX = 3;
+      context.shadowOffsetY = 3;
+      context.shadowColor = "black";
+      context.fillText(Math.floor(this.lives), this.x + this.width * 0.5, this.y - 20);
+      context.restore();
+    };
+  }
+
+  update() {  
+    this.speedY = 0;
+    if (this.game.spriteUpdate && this.lives >= 1) this.frameX = 0;
+    if (this.y < 0) this.y += 4;
+    if (this.x > this.game.width - this.width || this.x < 0 && this.lives >= 1) {
+      this.speedX *= -1;
+      this.speedY = this.height * 0.5;
+    }
+    this.x += this.speedX;
+    this.y += this.speedY;
+    // check collision boss with projectiles
+    this.game.projectilesPool.forEach((projectile) => {
+      if (
+        !projectile.free && this.game.checkCollision(this, projectile) && this.lives >= 1 && this.y >= 0
+      ) {
+        this.hit(1);
+        projectile.reset();
+      }
+    });
+    // boss destroyed
+    if (this.lives < 1 && this.game.spriteUpdate) {
+      this.frameX++;
+      if (this.frameX > this.maxFrame) {
+        this.markedForDeletion = true;
+        this.game.score += this.maxLives;
+        this.game.bossLives += 5;
+        if (!this.game.gameOver) this.game.newWave();
+      }
+    }
+    // check collision boss with player
+    if (this.game.checkCollision(this, this.game.player) && this.lives >= 1) {
+      this.game.gameOver = true;
+      this.lives = 0;
+    }
+    // lose condition
+    if (this.y + this.height > this.game.height) {
+      this.game.gameOver = true;
+    }
+  }
+  hit(damage) {
+    this.lives -= damage;
+    if (this.lives >= 1) this.frameX = 1;
+  }
+}
+
 class Wave {
   constructor(game) {
     this.game = game;
@@ -166,6 +377,7 @@ class Wave {
     this.speedY = 0;
     this.enemies = [];
     this.nextWaveTrigger = false;
+    this.markedForDeletion = false;
     this.create();
   }
 
@@ -183,13 +395,18 @@ class Wave {
       enemy.draw(context);
     });
     this.enemies = this.enemies.filter((enemy) => !enemy.markedForDeletion);
+    if (this.enemies.length <= 0) this.markedForDeletion = true;
   }
   create() {
     for (let y = 0; y < this.game.rows; y++) {
       for (let x = 0; x < this.game.columns; x++) {
         let enemyX = x * this.game.enemySize;
         let enemyY = y * this.game.enemySize;
-        this.enemies.push(new Beetlemorph(this.game, enemyX, enemyY));
+        if (Math.random() < 0.2) {
+          this.enemies.push(new Rhinomorph(this.game, enemyX, enemyY));
+        } else {
+          this.enemies.push(new Beetlemorph(this.game, enemyX, enemyY));
+        }
       }
     }
   }
@@ -213,7 +430,6 @@ class Game {
     this.enemySize = 80;
 
     this.waves = [];
-    this.waves.push(new Wave(this));
     this.waveCount = 1;
 
     this.spriteUpdate = false;
@@ -222,6 +438,11 @@ class Game {
 
     this.score = 0;
     this.gameOver = false;
+
+    this.bossArray = [];
+    this.bossLives = 10;
+
+    this.restart();
 
     window.addEventListener("keydown", (e) => {
       if (e.key === " " && !this.fired) this.player.shoot();
@@ -248,18 +469,21 @@ class Game {
 
     this.drawStatusText(context);
     this.projectilesPool.forEach((projectile) => {
-        projectile.draw(context);
-        projectile.update();
-      });
+      projectile.draw(context);
+      projectile.update();
+    });
     this.player.draw(context);
     this.player.update(context);
+    this.bossArray.forEach((boss) => {
+      boss.update();
+      boss.draw(context);
+    });
+    this.bossArray = this.bossArray.filter((boss) => !boss.markedForDeletion);
     this.waves.forEach((wave) => {
       wave.render(context);
       if (wave.enemies.length < 1 && !wave.nextWaveTrigger && !this.gameOver) {
         this.newWave();
-        this.waveCount++;
         wave.nextWaveTrigger = true;
-        if (this.player.lives < this.player.maxLives) this.player.lives++;
       }
     });
   }
@@ -300,6 +524,13 @@ class Game {
     for (let i = 0; i < this.player.lives; i++) {
       context.fillRect(20 + 20 * i, 100, 10, 15);
     }
+    // energy 
+    context.save();
+    this.player.cooldown ? context.fillStyle = "red" : context.fillStyle = "gold";
+    for (let i = 0; i < this.player.energy; i++) {
+      context.fillRect(20 + 2 * i, 130, 2, 15);
+    }
+    context.restore();
     if (this.gameOver) {
       context.textAlign = "center";
       context.font = "100px Impact";
@@ -314,15 +545,23 @@ class Game {
     context.restore();
   }
   newWave() {
-    if (
-      Math.random() < 0.5 &&
-      this.columns * this.enemySize < this.width * 0.8
-    ) {
-      this.columns++;
-    } else if (this.rows * this.enemySize < this.height * 0.6) {
-      this.rows++;
+    this.waveCount++;
+    if (this.player.lives < this.player.maxLives) this.player.lives++;
+    if (this.waveCount % 5 === 0) {
+      this.bossArray.push(new Boss(this, this.bossLives));
+    } else {
+      if (
+        Math.random() < 0.5 &&
+        this.columns * this.enemySize < this.width * 0.8
+      ) {
+        this.columns++;
+      } else if (this.rows * this.enemySize < this.height * 0.6) {
+        this.rows++;
+      }
+      this.waves.push(new Wave(this));
     }
-    this.waves.push(new Wave(this));
+    
+    this.waves = this.waves.filter((wave) => !wave.markedForDeletion);
   }
   restart() {
     this.player.restart();
@@ -330,7 +569,9 @@ class Game {
     this.rows = 2;
 
     this.waves = [];
-    this.waves.push(new Wave(this));
+    this.bossArray = [];
+    this.bossLives = 10;
+    this.bossArray.push(new Boss(this, this.bossLives));
     this.waveCount = 1;
     this.score = 0;
     this.gameOver = false;
