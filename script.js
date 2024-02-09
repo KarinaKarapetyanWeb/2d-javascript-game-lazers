@@ -27,13 +27,13 @@ class Lazer {
     if (this.game.spriteUpdate) {
       this.game.waves.forEach((wave) => {
         wave.enemies.forEach((enemy) => {
-          if (this.game.checkCollision(enemy, this) && boss.y > 0) {
+          if (this.game.checkCollision(enemy, this) ) {
             enemy.hit(this.damage);
           }
         });
       });
       this.game.bossArray.forEach((boss) => {
-        if (this.game.checkCollision(boss, this)) {
+        if (this.game.checkCollision(boss, this) && boss.y > 0) {
           boss.hit(this.damage);
         }
       });

@@ -6,3 +6,5 @@ Space Invaders remix
 to restart game press R
 
 to hit press Space
+
+to hit lazer press Z or X
